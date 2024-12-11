@@ -76,7 +76,7 @@ def menu_principal():
         print("2. Ajouter un produit")
         print("3. Supprimer un produit")
         print("4. Rechercher un produit")
-        print("5. Trier les produits")
+        print("5. Trier les produits par ordre alphabétique")
         print("6. Enregistrer et quitter")
 
         choix = input("Entrez votre choix : ").strip()
