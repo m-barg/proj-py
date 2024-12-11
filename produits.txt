@@ -1,0 +1,10 @@
+Abricot
+Ananas
+Banane
+Citron
+Fraise
+Mangue
+Orange
+Poire
+Pomme
+Raisin
