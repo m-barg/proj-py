@@ -59,48 +59,28 @@ def supprimer_produit(produits):
 
 def rechercher_produit(produits):
     """Recherche un produit dans la liste."""
-    recherche = input("Entrez le nom du produit à rechercher : ").strip()
-    resultats = [p for p in produits if recherche.lower() in p['nom'].lower()]
-    if resultats:
-        print("\nProduits trouvés :")
-        print(f"{'Nom':<20}{'Quantité':<10}{'Prix':<10}")
-        print("-" * 45)
-        for produit in resultats:
-            print(f"{produit['nom']:<20}{produit['quantite']:<10}{produit['prix']:<10.2f}")
-    else:
-        print(f"Aucun produit ne correspond à '{recherche}'.")
+    print("\nChoisissez un mode de recherche :")
+    print("1. Recherche par nom")
+    print("2. Recherche dichotomique")
+    choix_recherche = input("Entrez votre choix : ").strip()
 
-def trier_produits(produits):
-    """Trie la liste des produits selon différents critères."""
-    print("\nChoisissez un mode de tri :")
-    print("1. Tri standard")
-    print("2. Recherche dichotomique (tri complet de la liste)")
-    choix_tri = input("Entrez votre choix : ").strip()
-
-    if choix_tri == "1":
-        print("\nChoisissez un critère de tri :")
-        print("1. Par ordre alphabétique")
-        print("2. Par quantité")
-        print("3. Par prix")
-        choix_critere = input("Entrez votre choix : ").strip()
-
-        if choix_critere == "1":
-            produits.sort(key=lambda p: p['nom'].lower())
-            print("\nListe des produits triée par ordre alphabétique.")
-        elif choix_critere == "2":
-            produits.sort(key=lambda p: p['quantite'], reverse=True)
-            print("\nListe des produits triée par quantité (ordre décroissant).")
-        elif choix_critere == "3":
-            produits.sort(key=lambda p: p['prix'], reverse=True)
-            print("\nListe des produits triée par prix (ordre décroissant).")
+    if choix_recherche == "1":
+        recherche = input("Entrez le nom du produit à rechercher : ").strip()
+        resultats = [p for p in produits if recherche.lower() in p['nom'].lower()]
+        if resultats:
+            print("\nProduits trouvés :")
+            print(f"{'Nom':<20}{'Quantité':<10}{'Prix':<10}")
+            print("-" * 45)
+            for produit in resultats:
+                print(f"{produit['nom']:<20}{produit['quantite']:<10}{produit['prix']:<10.2f}")
         else:
-            print("Choix invalide. Aucun tri effectué.")
-    elif choix_tri == "2":
+            print(f"Aucun produit ne correspond à '{recherche}'.")
+    elif choix_recherche == "2":
         produits.sort(key=lambda p: p['nom'].lower())
         print("\nListe entièrement triée pour recherche dichotomique.")
         recherche_dichotomique(produits)
     else:
-        print("Mode de tri invalide.")
+        print("Choix invalide pour la recherche.")
 
 def recherche_dichotomique(produits):
     """Effectue une recherche dichotomique sur une liste triée."""
@@ -119,6 +99,26 @@ def recherche_dichotomique(produits):
             droite = milieu - 1
 
     print(f"\nLe produit '{cible}' n'a pas été trouvé dans la liste.")
+
+def trier_produits(produits):
+    """Trie la liste des produits selon différents critères."""
+    print("\nChoisissez un critère de tri :")
+    print("1. Par ordre alphabétique")
+    print("2. Par quantité")
+    print("3. Par prix")
+    choix_critere = input("Entrez votre choix : ").strip()
+
+    if choix_critere == "1":
+        produits.sort(key=lambda p: p['nom'].lower())
+        print("\nListe des produits triée par ordre alphabétique.")
+    elif choix_critere == "2":
+        produits.sort(key=lambda p: p['quantite'], reverse=True)
+        print("\nListe des produits triée par quantité (ordre décroissant).")
+    elif choix_critere == "3":
+        produits.sort(key=lambda p: p['prix'], reverse=True)
+        print("\nListe des produits triée par prix (ordre décroissant).")
+    else:
+        print("Choix invalide. Aucun tri effectué.")
 
 # Menu principal
 def menu_principal():
