@@ -55,6 +55,37 @@ def supprimer_produit(produits):
     except ValueError:
         print("Entrée invalide. Veuillez entrer un numéro valide.")
 
+def modifier_produit(produits):
+    afficher_produits(produits)
+    try:
+        index = int(input("Entrez le numéro du produit à modifier : ")) - 1
+        if 0 <= index < len(produits):
+            produit = produits[index]
+            print(f"Produit sélectionné : {produit['nom']}")
+            nouveau_quantite = input(f"Entrez la nouvelle quantité (actuelle : {produit['quantite']}) ou laissez vide pour ne pas changer : ").strip()
+            nouveau_prix = input(f"Entrez le nouveau prix (actuel : {produit['prix']:.2f}) ou laissez vide pour ne pas changer : ").strip()
+
+            if nouveau_quantite:
+                try:
+                    produit['quantite'] = int(nouveau_quantite)
+                except ValueError:
+                    print("Quantité invalide. Modifications annulées.")
+                    return
+
+            if nouveau_prix:
+                try:
+                    produit['prix'] = float(nouveau_prix)
+                except ValueError:
+                    print("Prix invalide. Modifications annulées.")
+                    return
+
+            print(f"Produit '{produit['nom']}' modifié avec succès.")
+        else:
+            print("Numéro invalide.")
+    except ValueError:
+        print("Entrée invalide. Veuillez entrer un numéro valide.")
+
+
 def rechercher_produit(produits):
     print("\nChoisissez un mode de recherche :")
     print("1. Recherche par nom")
@@ -157,8 +188,9 @@ def menu_principal():
         print("2. Ajouter un produit")
         print("3. Supprimer un produit")
         print("4. Rechercher un produit")
-        print("5. Trier les produits")
-        print("6. Enregistrer et quitter")
+        print("5. modifier un produit")
+        print("6. Trier les produits")
+        print("7. Enregistrer et quitter")
 
         choix = input("Entrez votre choix : ").strip()
 
@@ -171,8 +203,10 @@ def menu_principal():
         elif choix == "4":
             rechercher_produit(produits)
         elif choix == "5":
-            trier_produits(produits)
+            modifier_produit(produits)
         elif choix == "6":
+            trier_produits(produits)
+        elif choix == "7":
             enregistrer_produits(nom_fichier, produits)
             print("Modifications enregistrées. Au revoir !")
             break
