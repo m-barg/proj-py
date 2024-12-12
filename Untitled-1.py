@@ -85,7 +85,6 @@ def modifier_produit(produits):
     except ValueError:
         print("Entrée invalide. Veuillez entrer un numéro valide.")
 
-
 def rechercher_produit(produits):
     print("\nChoisissez un mode de recherche :")
     print("1. Recherche par nom")
@@ -138,13 +137,20 @@ def trier_produits(produits):
         produits.sort(key=lambda p: p['nom'].lower())
         print("\nListe des produits triée par ordre alphabétique.")
     elif choix_critere == "2":
-        produits.sort(key=lambda p: p['quantite'], reverse=True)
+        tri_bulle_quantite(produits)
         print("\nListe des produits triée par quantité (ordre décroissant).")
     elif choix_critere == "3":
         tri_par_prix()
         print("\nListe des produits triée par prix dans le fichier.")
     else:
         print("Choix invalide. Aucun tri effectué.")
+
+def tri_bulle_quantite(produits):
+    n = len(produits)
+    for i in range(n):
+        for j in range(0, n-i-1):
+            if produits[j]['quantite'] < produits[j+1]['quantite']:
+                produits[j], produits[j+1] = produits[j+1], produits[j]
 
 def quicksort_prix(lignes):
     lignes = [ligne for ligne in lignes if ligne.strip()]  # Filtrer les lignes vides
@@ -188,7 +194,7 @@ def menu_principal():
         print("2. Ajouter un produit")
         print("3. Supprimer un produit")
         print("4. Rechercher un produit")
-        print("5. modifier un produit")
+        print("5. Modifier un produit")
         print("6. Trier les produits")
         print("7. Enregistrer et quitter")
 
