@@ -1,8 +1,8 @@
-Ananas,5,2.0
-Banane,20,0.8
-Citron,20,1.4
-Mangue,5,3.0
-Orange,15,1.2
 Poire,10,0.42
+Banane,20,0.8
+Orange,15,1.2
+Citron,20,1.4
 Pomme,10,1.5
+Ananas,5,2.0
+Mangue,5,3.0
 Raisin,15,3.5
