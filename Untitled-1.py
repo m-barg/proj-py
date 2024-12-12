@@ -1,12 +1,16 @@
 import os
+import shutil
 
 def charger_produits(nom_fichier):
     produits = []
     if os.path.exists(nom_fichier):
         with open(nom_fichier, "r") as fichier:
             for ligne in fichier:
-                nom, quantite, prix = ligne.strip().split(",")
-                produits.append({"nom": nom, "quantite": int(quantite), "prix": float(prix)})
+                try:
+                    nom, quantite, prix = ligne.strip().split(",")
+                    produits.append({"nom": nom, "quantite": int(quantite), "prix": float(prix)})
+                except ValueError:
+                    print(f"Ligne ignorée : {ligne.strip()}")
     else:
         print(f"Le fichier {nom_fichier} n'existe pas.")
     return produits
@@ -106,10 +110,42 @@ def trier_produits(produits):
         produits.sort(key=lambda p: p['quantite'], reverse=True)
         print("\nListe des produits triée par quantité (ordre décroissant).")
     elif choix_critere == "3":
-        produits.sort(key=lambda p: p['prix'], reverse=True)
-        print("\nListe des produits triée par prix (ordre décroissant).")
+        tri_par_prix()
+        print("\nListe des produits triée par prix dans le fichier.")
     else:
         print("Choix invalide. Aucun tri effectué.")
+
+def quicksort_prix(lignes):
+    lignes = [ligne for ligne in lignes if ligne.strip()]  # Filtrer les lignes vides
+    if len(lignes) <= 1:
+        return lignes
+
+    try:
+        pivot = float(lignes[-1].strip().split(",")[2])  # Dernier élément comme pivot
+    except (IndexError, ValueError):
+        print("Erreur dans le format des données.")
+        return lignes
+
+    moins_que_pivot = [ligne for ligne in lignes[:-1] if float(ligne.strip().split(",")[2]) <= pivot]
+    plus_que_pivot = [ligne for ligne in lignes[:-1] if float(ligne.strip().split(",")[2]) > pivot]
+
+    return quicksort_prix(moins_que_pivot) + [lignes[-1]] + quicksort_prix(plus_que_pivot)
+
+def tri_par_prix():
+    nom_fichier = "produits.txt"
+    if os.path.exists(nom_fichier):
+        shutil.copy(nom_fichier, f"{nom_fichier}.backup")  # Sauvegarde du fichier
+        with open(nom_fichier, "r") as liste:
+            lignes = liste.readlines()
+
+        lignes_triees = quicksort_prix(lignes)
+        with open(nom_fichier, "w") as fichier:
+            for ligne in lignes_triees:
+                fichier.write(ligne.strip() + "\n")
+
+        print("Le tri par prix avec QuickSort a été effectué et enregistré dans le fichier.")
+    else:
+        print(f"Le fichier {nom_fichier} n'existe pas.")
 
 def menu_principal():
     nom_fichier = "produits.txt"
