@@ -153,12 +153,12 @@ def tri_bulle_quantite(produits):
                 produits[j], produits[j+1] = produits[j+1], produits[j]
 
 def quicksort_prix(lignes):
-    lignes = [ligne for ligne in lignes if ligne.strip()]  # Filtrer les lignes vides
+    lignes = [ligne for ligne in lignes if ligne.strip()]  
     if len(lignes) <= 1:
         return lignes
 
     try:
-        pivot = float(lignes[-1].strip().split(",")[2])  # Dernier élément comme pivot
+        pivot = float(lignes[-1].strip().split(",")[2])  
     except (IndexError, ValueError):
         print("Erreur dans le format des données.")
         return lignes
@@ -171,7 +171,7 @@ def quicksort_prix(lignes):
 def tri_par_prix():
     nom_fichier = "produits.txt"
     if os.path.exists(nom_fichier):
-        shutil.copy(nom_fichier, f"{nom_fichier}.backup")  # Sauvegarde du fichier
+        shutil.copy(nom_fichier, f"{nom_fichier}.backup")  #j'ai creer un backup pour sauvegarder le fichier,n'y touche pass
         with open(nom_fichier, "r") as liste:
             lignes = liste.readlines()
 
