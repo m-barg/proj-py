@@ -171,7 +171,7 @@ def quicksort_prix(lignes):
 def tri_par_prix():
     nom_fichier = "produits.txt"
     if os.path.exists(nom_fichier):
-        shutil.copy(nom_fichier, f"{nom_fichier}.backup")  #j'ai creer un backup pour sauvegarder le fichier,n'y touche pas
+        shutil.copy(nom_fichier, f"{nom_fichier}.backup")  #j'ai creer un backup pour sauvegarder le fichier,n'y touche pass
         with open(nom_fichier, "r") as liste:
             lignes = liste.readlines()
 
