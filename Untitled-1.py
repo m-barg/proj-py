@@ -1,223 +1,240 @@
-import os
-import shutil
+import tkinter as tk
+from tkinter import ttk, messagebox
+import json
+import sqlite3
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-def charger_produits(nom_fichier):
-    produits = []
-    if os.path.exists(nom_fichier):
-        with open(nom_fichier, "r") as fichier:
-            for ligne in fichier:
+def setup_database():
+    conn = sqlite3.connect("commerce.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS produits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom TEXT,
+        prix REAL,
+        stock INTEGER
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS commandes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        contenu TEXT,
+        statut TEXT
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+def reset_autoincrement():
+    conn = sqlite3.connect("commerce.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM sqlite_sequence WHERE name='produits'")
+    conn.commit()
+    conn.close()
+
+def load_produits_from_file():
+    try:
+        with open("produits.txt", "r") as file:
+            lignes = file.readlines()
+            produits = []
+            for ligne in lignes:
                 try:
-                    nom, quantite, prix = ligne.strip().split(",")
-                    produits.append({"nom": nom, "quantite": int(quantite), "prix": float(prix)})
+                    nom, stock, prix = ligne.strip().split(",")
+                    produits.append({"nom": nom, "stock": int(stock), "prix": float(prix)})
                 except ValueError:
-                    print(f"Ligne ignorée : {ligne.strip()}")
-    else:
-        print(f"Le fichier {nom_fichier} n'existe pas.")
-    return produits
+                    continue
+    except FileNotFoundError:
+        produits = []
 
-def enregistrer_produits(nom_fichier, produits):
-    with open(nom_fichier, "w") as fichier:
-        for produit in produits:
-            fichier.write(f"{produit['nom']},{produit['quantite']},{produit['prix']}\n")
+    conn = sqlite3.connect("commerce.db")
+    cursor = conn.cursor()
 
-def afficher_produits(produits):
-    if produits:
-        print("\nListe des produits :")
-        print(f"{'#':<5}{'Nom':<20}{'Quantité':<10}{'Prix':<10}")
-        print("-" * 45)
-        for i, produit in enumerate(produits, 1):
-            print(f"{i:<5}{produit['nom']:<20}{produit['quantite']:<10}{produit['prix']:<10.2f}")
-    else:
-        print("\nLa liste des produits est vide.")
+    cursor.execute("DELETE FROM produits")
+    for produit in produits:
+        cursor.execute(
+            "INSERT INTO produits (nom, prix, stock) VALUES (?, ?, ?)",
+            (produit["nom"], produit["prix"], produit["stock"]),
+        )
 
-def ajouter_produit(produits):
-    nom = input("Entrez le nom du produit à ajouter : ").strip()
-    if nom:
+    conn.commit()
+    conn.close()
+
+def load_commandes():
+    try:
+        with open("commandes.json", "r") as file:
+            commandes = json.load(file)
+    except FileNotFoundError:
+        commandes = []
+    except json.JSONDecodeError:
+        commandes = []
+
+    return commandes
+
+def save_commandes(commandes):
+    with open("commandes.json", "w") as file:
+        json.dump(commandes, file, indent=4)
+
+def update_products_tree():
+    for row in tree.get_children():
+        tree.delete(row)
+
+    conn = sqlite3.connect("commerce.db")
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT * FROM produits")
+        for row in cursor.fetchall():
+            tree.insert("", "end", values=row)
+    except sqlite3.OperationalError:
+        messagebox.showerror("Erreur", "La table 'produits' n'existe pas. Veuillez vérifier la base de données.")
+    finally:
+        conn.close()
+
+def add_product():
+    def save_product():
+        nom = entry_nom.get()
         try:
-            quantite = int(input("Entrez la quantité : ").strip())
-            prix = float(input("Entrez le prix : ").strip())
-            produits.append({"nom": nom, "quantite": quantite, "prix": prix})
-            print(f"Produit '{nom}' ajouté avec succès.")
+            prix = float(entry_prix.get())
+            stock = int(entry_stock.get())
         except ValueError:
-            print("Quantité ou prix invalide. Veuillez réessayer.")
-    else:
-        print("Le nom du produit ne peut pas être vide.")
-
-def supprimer_produit(produits):
-    afficher_produits(produits)
-    try:
-        index = int(input("Entrez le numéro du produit à supprimer : ")) - 1
-        if 0 <= index < len(produits):
-            produit_supprime = produits.pop(index)
-            print(f"Produit '{produit_supprime['nom']}' supprimé avec succès.")
-        else:
-            print("Numéro invalide.")
-    except ValueError:
-        print("Entrée invalide. Veuillez entrer un numéro valide.")
-
-def modifier_produit(produits):
-    afficher_produits(produits)
-    try:
-        index = int(input("Entrez le numéro du produit à modifier : ")) - 1
-        if 0 <= index < len(produits):
-            produit = produits[index]
-            print(f"Produit sélectionné : {produit['nom']}")
-            nouveau_quantite = input(f"Entrez la nouvelle quantité (actuelle : {produit['quantite']}) ou laissez vide pour ne pas changer : ").strip()
-            nouveau_prix = input(f"Entrez le nouveau prix (actuel : {produit['prix']:.2f}) ou laissez vide pour ne pas changer : ").strip()
-
-            if nouveau_quantite:
-                try:
-                    produit['quantite'] = int(nouveau_quantite)
-                except ValueError:
-                    print("Quantité invalide. Modifications annulées.")
-                    return
-
-            if nouveau_prix:
-                try:
-                    produit['prix'] = float(nouveau_prix)
-                except ValueError:
-                    print("Prix invalide. Modifications annulées.")
-                    return
-
-            print(f"Produit '{produit['nom']}' modifié avec succès.")
-        else:
-            print("Numéro invalide.")
-    except ValueError:
-        print("Entrée invalide. Veuillez entrer un numéro valide.")
-
-def rechercher_produit(produits):
-    print("\nChoisissez un mode de recherche :")
-    print("1. Recherche par nom")
-    print("2. Recherche dichotomique")
-    choix_recherche = input("Entrez votre choix : ").strip()
-
-    if choix_recherche == "1":
-        recherche = input("Entrez le nom du produit à rechercher : ").strip()
-        resultats = [p for p in produits if recherche.lower() in p['nom'].lower()]
-        if resultats:
-            print("\nProduits trouvés :")
-            print(f"{'Nom':<20}{'Quantité':<10}{'Prix':<10}")
-            print("-" * 45)
-            for produit in resultats:
-                print(f"{produit['nom']:<20}{produit['quantite']:<10}{produit['prix']:<10.2f}")
-        else:
-            print(f"Aucun produit ne correspond à '{recherche}'.")
-    elif choix_recherche == "2":
-        produits.sort(key=lambda p: p['nom'].lower())
-        print("\nListe entièrement triée pour recherche dichotomique.")
-        recherche_dichotomique(produits)
-    else:
-        print("Choix invalide pour la recherche.")
-
-def recherche_dichotomique(produits):
-    cible = input("Entrez le nom du produit à rechercher (recherche dichotomique) : ").strip().lower()
-    gauche, droite = 0, len(produits) - 1
-    while gauche <= droite:
-        milieu = (gauche + droite) // 2
-        produit_nom = produits[milieu]['nom'].lower()
-
-        if produit_nom == cible:
-            print(f"\nProduit trouvé : {produits[milieu]['nom']}, Quantité : {produits[milieu]['quantite']}, Prix : {produits[milieu]['prix']:.2f}")
+            messagebox.showerror("Erreur", "Veuillez entrer des valeurs valides pour le prix et le stock.")
             return
-        elif produit_nom < cible:
-            gauche = milieu + 1
-        else:
-            droite = milieu - 1
 
-    print(f"\nLe produit '{cible}' n'a pas été trouvé dans la liste.")
+        conn = sqlite3.connect("commerce.db")
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO produits (nom, prix, stock) VALUES (?, ?, ?)", (nom, prix, stock))
+        conn.commit()
+        conn.close()
 
-def trier_produits(produits):
-    print("\nChoisissez un critère de tri :")
-    print("1. Par ordre alphabétique")
-    print("2. Par quantité")
-    print("3. Par prix")
-    choix_critere = input("Entrez votre choix : ").strip()
+        update_products_tree()
+        add_window.destroy()
 
-    if choix_critere == "1":
-        produits.sort(key=lambda p: p['nom'].lower())
-        print("\nListe des produits triée par ordre alphabétique.")
-    elif choix_critere == "2":
-        tri_bulle_quantite(produits)
-        print("\nListe des produits triée par quantité (ordre décroissant).")
-    elif choix_critere == "3":
-        tri_par_prix()
-        print("\nListe des produits triée par prix dans le fichier.")
-    else:
-        print("Choix invalide. Aucun tri effectué.")
+    add_window = tk.Toplevel(root)
+    add_window.title("Ajouter un produit")
 
-def tri_bulle_quantite(produits):
-    n = len(produits)
-    for i in range(n):
-        for j in range(0, n-i-1):
-            if produits[j]['quantite'] < produits[j+1]['quantite']:
-                produits[j], produits[j+1] = produits[j+1], produits[j]
+    tk.Label(add_window, text="Nom:").grid(row=0, column=0)
+    entry_nom = tk.Entry(add_window)
+    entry_nom.grid(row=0, column=1)
 
-def quicksort_prix(lignes):
-    lignes = [ligne for ligne in lignes if ligne.strip()]  
-    if len(lignes) <= 1:
-        return lignes
+    tk.Label(add_window, text="Prix:").grid(row=1, column=0)
+    entry_prix = tk.Entry(add_window)
+    entry_prix.grid(row=1, column=1)
+
+    tk.Label(add_window, text="Stock:").grid(row=2, column=0)
+    entry_stock = tk.Entry(add_window)
+    entry_stock.grid(row=2, column=1)
+
+    tk.Button(add_window, text="Sauvegarder", command=save_product).grid(row=3, column=0, columnspan=2)
+
+def delete_product():
+    selected_item = tree.selection()
+    if not selected_item:
+        messagebox.showwarning("Avertissement", "Veuillez sélectionner un produit à supprimer.")
+        return
+
+    product_id = tree.item(selected_item, "values")[0]
+
+    conn = sqlite3.connect("commerce.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM produits WHERE id=?", (product_id,))
+    conn.commit()
+    conn.close()
+
+    update_products_tree()
+    messagebox.showinfo("Suppression", f"Le produit avec l'ID {product_id} a été supprimé.")
+
+def display_commandes():
+    commandes = load_commandes()
+    commandes_window = tk.Toplevel(root)
+    commandes_window.title("Commandes")
+
+    tree_commandes = ttk.Treeview(commandes_window, columns=("ID", "Contenu", "Statut"), show="headings")
+    tree_commandes.heading("ID", text="ID")
+    tree_commandes.heading("Contenu", text="Contenu")
+    tree_commandes.heading("Statut", text="Statut")
+
+    tree_commandes.pack(fill=tk.BOTH, expand=True)
+
+    for idx, commande in enumerate(commandes):
+        tree_commandes.insert("", "end", values=(idx + 1, json.dumps(commande.get("contenu", "")), commande.get("statut", "")))
+
+def display_statistics():
+    conn = sqlite3.connect("commerce.db")
+    cursor = conn.cursor()
 
     try:
-        pivot = float(lignes[-1].strip().split(",")[2])  
-    except (IndexError, ValueError):
-        print("Erreur dans le format des données.")
-        return lignes
+        cursor.execute("SELECT nom, stock FROM produits")
+        products = cursor.fetchall()
+    except sqlite3.OperationalError:
+        messagebox.showerror("Erreur", "La table 'produits' n'existe pas. Veuillez vérifier la base de données.")
+        return
+    finally:
+        conn.close()
 
-    moins_que_pivot = [ligne for ligne in lignes[:-1] if float(ligne.strip().split(",")[2]) <= pivot]
-    plus_que_pivot = [ligne for ligne in lignes[:-1] if float(ligne.strip().split(",")[2]) > pivot]
+    stats_window = tk.Toplevel(root)
+    stats_window.title("Statistiques")
 
-    return quicksort_prix(moins_que_pivot) + [lignes[-1]] + quicksort_prix(plus_que_pivot)
+    fig = Figure(figsize=(6, 4), dpi=100)
+    ax = fig.add_subplot(111)
 
-def tri_par_prix():
-    nom_fichier = "produits.txt"
-    if os.path.exists(nom_fichier):
-        shutil.copy(nom_fichier, f"{nom_fichier}.backup")  #j'ai creer un backup pour sauvegarder le fichier,n'y touche pass
-        with open(nom_fichier, "r") as liste:
-            lignes = liste.readlines()
+    noms = [product[0] for product in products]
+    stocks = [product[1] for product in products]
 
-        lignes_triees = quicksort_prix(lignes)
-        with open(nom_fichier, "w") as fichier:
-            for ligne in lignes_triees:
-                fichier.write(ligne.strip() + "\n")
+    ax.bar(noms, stocks, color="blue")
+    ax.set_title("Stock des produits")
+    ax.set_xlabel("Produits")
+    ax.set_ylabel("Quantité en stock")
 
-        print("Le tri par prix avec QuickSort a été effectué et enregistré dans le fichier.")
+    canvas = FigureCanvasTkAgg(fig, master=stats_window)
+    canvas.draw()
+    canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+def treeview_sort_column(tv, col, reverse):
+    l = [(tv.set(k, col), k) for k in tv.get_children('')]
+    if col == "Stock":
+        l.sort(key=lambda x: int(x[0]), reverse=reverse)
     else:
-        print(f"Le fichier {nom_fichier} n'existe pas.")
+        l.sort(reverse=reverse)
 
-def menu_principal():
-    nom_fichier = "produits.txt"
-    produits = charger_produits(nom_fichier)
+    for index, (val, k) in enumerate(l):
+        tv.move(k, '', index)
 
-    while True:
-        print("\n=== Gestion des Produits ===")
-        print("1. Afficher la liste des produits")
-        print("2. Ajouter un produit")
-        print("3. Supprimer un produit")
-        print("4. Rechercher un produit")
-        print("5. Modifier un produit")
-        print("6. Trier les produits")
-        print("7. Enregistrer et quitter")
+    for column in tv["columns"]:
+        tv.heading(column, text=column)
+    if reverse:
+        tv.heading(col, text=f"{col} ▲")
+    else:
+        tv.heading(col, text=f"{col} ▼")
 
-        choix = input("Entrez votre choix : ").strip()
+    tv.heading(col, command=lambda: treeview_sort_column(tv, col, not reverse))
 
-        if choix == "1":
-            afficher_produits(produits)
-        elif choix == "2":
-            ajouter_produit(produits)
-        elif choix == "3":
-            supprimer_produit(produits)
-        elif choix == "4":
-            rechercher_produit(produits)
-        elif choix == "5":
-            modifier_produit(produits)
-        elif choix == "6":
-            trier_produits(produits)
-        elif choix == "7":
-            enregistrer_produits(nom_fichier, produits)
-            print("Modifications enregistrées. Au revoir !")
-            break
-        else:
-            print("Choix invalide, veuillez réessayer.")
+root = tk.Tk()
+root.title("Gestion des commandes")
 
-if __name__ == "__main__":
-    menu_principal()
+frame_products = tk.Frame(root)
+frame_products.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+tree = ttk.Treeview(frame_products, columns=("ID", "Nom", "Prix", "Stock"), show="headings")
+tree.heading("ID", text="ID", command=lambda: treeview_sort_column(tree, "ID", False))
+tree.heading("Nom", text="Nom", command=lambda: treeview_sort_column(tree, "Nom", False))
+tree.heading("Prix", text="Prix", command=lambda: treeview_sort_column(tree, "Prix", False))
+tree.heading("Stock", text="Stock", command=lambda: treeview_sort_column(tree, "Stock", False))
+
+tree.pack(fill=tk.BOTH, expand=True)
+update_products_tree()
+
+btn_frame = tk.Frame(root)
+btn_frame.pack(fill=tk.X, padx=10, pady=10)
+
+tk.Button(btn_frame, text="Ajouter un produit", command=add_product).pack(side=tk.LEFT, padx=5)
+tk.Button(btn_frame, text="Supprimer un produit", command=delete_product).pack(side=tk.LEFT, padx=5)
+tk.Button(btn_frame, text="Afficher les commandes", command=display_commandes).pack(side=tk.LEFT, padx=5)
+tk.Button(btn_frame, text="Statistiques", command=display_statistics).pack(side=tk.LEFT, padx=5)
+
+setup_database()
+load_produits_from_file()
+reset_autoincrement()
+root.mainloop()
