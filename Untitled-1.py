@@ -1,175 +1,171 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from tkinter import messagebox, ttk
+import pandas as pd
+import hashlib
 
-# Fonctions pour la gestion des produits
-def load_produits_from_file():
+FILE_USERS = "utilisateurs.csv"
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def load_users():
     try:
-        with open("produits.txt", "r") as file:
-            lignes = file.readlines()
-            produits = []
-            for ligne in lignes:
-                try:
-                    nom, stock, prix = ligne.strip().split(",")
-                    produits.append({"nom": nom, "stock": int(stock), "prix": float(prix)})
-                except ValueError:
-                    continue
+        return pd.read_csv(FILE_USERS)
     except FileNotFoundError:
-        produits = []
-    return produits
+        return pd.DataFrame(columns=["Utilisateur", "Mot_de_passe"])
 
-def save_produits_to_file(produits):
-    with open("produits.txt", "w") as file:
-        for produit in produits:
-            file.write(f"{produit['nom']},{produit['stock']},{produit['prix']}\n")
+def save_users(users):
+    users.to_csv(FILE_USERS, index=False)
+class Application(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Gestion des stocks - Multi-utilisateurs")
+        self.geometry("600x400")
+        self.current_user = None
+        self.users = load_users()
+        self.show_login_screen()
 
-def load_commandes_from_file():
-    try:
-        with open("commandes.txt", "r") as file:
-            lignes = file.readlines()
-            commandes = []
-            for ligne in lignes:
-                try:
-                    id, contenu, statut = ligne.strip().split(",")
-                    commandes.append({"id": id, "contenu": contenu, "statut": statut})
-                except ValueError:
-                    continue
-    except FileNotFoundError:
-        commandes = []
-    return commandes
+    def show_login_screen(self):
+        for widget in self.winfo_children():
+            widget.destroy()
 
-def save_commandes_to_file(commandes):
-    with open("commandes.txt", "w") as file:
-        for commande in commandes:
-            file.write(f"{commande['id']},{commande['contenu']},{commande['statut']}\n")
+        tk.Label(self, text="Connexion", font=("Arial", 20)).pack(pady=10)
 
-def update_products_tree(produits):
-    for row in tree.get_children():
-        tree.delete(row)
+        tk.Label(self, text="Nom d'utilisateur:").pack()
+        username_entry = tk.Entry(self)
+        username_entry.pack()
 
-    for produit in produits:
-        tree.insert("", "end", values=(produit['nom'], produit['prix'], produit['stock']))
+        tk.Label(self, text="Mot de passe:").pack()
+        password_entry = tk.Entry(self, show="*")
+        password_entry.pack()
 
-def add_product(produits):
-    def save_product():
-        nom = entry_nom.get()
-        try:
-            prix = float(entry_prix.get())
-            stock = int(entry_stock.get())
-        except ValueError:
-            messagebox.showerror("Erreur", "Veuillez entrer des valeurs valides pour le prix et le stock.")
+        tk.Button(self, text="Se connecter", command=lambda: self.login(username_entry.get(), password_entry.get())).pack(pady=5)
+        tk.Button(self, text="S'inscrire", command=lambda: self.show_register_screen()).pack(pady=5)
+
+    def show_register_screen(self):
+        for widget in self.winfo_children():
+            widget.destroy()
+
+        tk.Label(self, text="Inscription", font=("Arial", 20)).pack(pady=10)
+
+        tk.Label(self, text="Nom d'utilisateur:").pack()
+        username_entry = tk.Entry(self)
+        username_entry.pack()
+
+        tk.Label(self, text="Mot de passe:").pack()
+        password_entry = tk.Entry(self, show="*")
+        password_entry.pack()
+
+        tk.Button(self, text="S'inscrire", command=lambda: self.register(username_entry.get(), password_entry.get())).pack(pady=5)
+        tk.Button(self, text="Retour", command=lambda: self.show_login_screen()).pack(pady=5)
+
+    def login(self, username, password):
+        hashed_password = hash_password(password)
+        if not self.users[(self.users["Utilisateur"] == username) & (self.users["Mot_de_passe"] == hashed_password)].empty:
+            self.current_user = username
+            self.show_product_management_screen()
+        else:
+            messagebox.showerror("Erreur", "Nom d'utilisateur ou mot de passe incorrect.")
+
+    def register(self, username, password):
+        if username.strip() == "" or password.strip() == "":
+            messagebox.showerror("Erreur", "Veuillez remplir tous les champs.")
             return
 
-        produits.append({"nom": nom, "prix": prix, "stock": stock})
-        save_produits_to_file(produits)
-        update_products_tree(produits)
-        add_window.destroy()
+        if not self.users[self.users["Utilisateur"] == username].empty:
+            messagebox.showerror("Erreur", "Ce nom d'utilisateur est déjà pris.")
+            return
 
-    add_window = tk.Toplevel(root)
-    add_window.title("Ajouter un produit")
+        new_user = {"Utilisateur": username, "Mot_de_passe": hash_password(password)}
+        self.users = pd.concat([self.users, pd.DataFrame([new_user])], ignore_index=True)
+        save_users(self.users)
 
-    tk.Label(add_window, text="Nom:").grid(row=0, column=0)
-    entry_nom = tk.Entry(add_window)
-    entry_nom.grid(row=0, column=1)
+        messagebox.showinfo("Succès", "Inscription réussie.")
+        self.show_login_screen()
+    def show_product_management_screen(self):
+        for widget in self.winfo_children():
+            widget.destroy()
 
-    tk.Label(add_window, text="Prix:").grid(row=1, column=0)
-    entry_prix = tk.Entry(add_window)
-    entry_prix.grid(row=1, column=1)
+        tk.Label(self, text=f"Gestion des produits - {self.current_user}", font=("Arial", 20)).pack(pady=10)
 
-    tk.Label(add_window, text="Stock:").grid(row=2, column=0)
-    entry_stock = tk.Entry(add_window)
-    entry_stock.grid(row=2, column=1)
+        product_frame = tk.Frame(self)
+        product_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-    tk.Button(add_window, text="Sauvegarder", command=save_product).grid(row=3, column=0, columnspan=2)
+        columns = ["Nom", "Prix", "Stock"]
+        self.tree = ttk.Treeview(product_frame, columns=columns, show="headings")
+        for col in columns:
+            self.tree.heading(col, text=col)
+        self.tree.pack(fill=tk.BOTH, expand=True)
 
-def delete_product(produits):
-    selected_item = tree.selection()
-    if not selected_item:
-        messagebox.showwarning("Avertissement", "Veuillez sélectionner un produit à supprimer.")
-        return
+        btn_frame = tk.Frame(self)
+        btn_frame.pack(fill=tk.X, padx=10, pady=5)
 
-    nom = tree.item(selected_item, "values")[0]
-    produits = [p for p in produits if p['nom'] != nom]
-    save_produits_to_file(produits)
-    update_products_tree(produits)
-    messagebox.showinfo("Suppression", f"Le produit '{nom}' a été supprimé.")
+        tk.Button(btn_frame, text="Ajouter un produit", command=self.add_product).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Supprimer un produit", command=self.delete_product).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Déconnexion", command=self.show_login_screen).pack(side=tk.RIGHT, padx=5)
 
-def display_commandes():
-    commandes = load_commandes_from_file()
-    commandes_window = tk.Toplevel(root)
-    commandes_window.title("Commandes")
+        self.load_products()
 
-    tree_commandes = ttk.Treeview(commandes_window, columns=("ID", "Contenu", "Statut"), show="headings")
-    tree_commandes.heading("ID", text="ID")
-    tree_commandes.heading("Contenu", text="Contenu")
-    tree_commandes.heading("Statut", text="Statut")
+    def load_products(self):
+        try:
+            self.products = pd.read_csv(f"produits_{self.current_user}.csv")
+        except FileNotFoundError:
+            self.products = pd.DataFrame(columns=["Nom", "Prix", "Stock"])
 
-    tree_commandes.pack(fill=tk.BOTH, expand=True)
+        self.update_product_tree()
 
-    for commande in commandes:
-        tree_commandes.insert("", "end", values=(commande['id'], commande['contenu'], commande['statut']))
+    def update_product_tree(self):
+        for row in self.tree.get_children():
+            self.tree.delete(row)
 
-def display_statistics(produits):
-    stats_window = tk.Toplevel(root)
-    stats_window.title("Statistiques")
+        for _, product in self.products.iterrows():
+            self.tree.insert("", "end", values=(product["Nom"], product["Prix"], product["Stock"]))
 
-    fig = Figure(figsize=(6, 4), dpi=100)
-    ax = fig.add_subplot(111)
+    def add_product(self):
+        def save_new_product():
+            nom = entry_nom.get()
+            try:
+                prix = float(entry_prix.get())
+                stock = int(entry_stock.get())
+            except ValueError:
+                messagebox.showerror("Erreur", "Prix et stock doivent être des nombres.")
+                return
 
-    noms = [produit['nom'] for produit in produits]
-    stocks = [produit['stock'] for produit in produits]
+            new_product = {"Nom": nom, "Prix": prix, "Stock": stock}
+            self.products = pd.concat([self.products, pd.DataFrame([new_product])], ignore_index=True)
+            self.products.to_csv(f"produits_{self.current_user}.csv", index=False)
+            self.update_product_tree()
+            add_window.destroy()
 
-    ax.bar(noms, stocks, color="blue")
-    ax.set_title("Stock des produits")
-    ax.set_xlabel("Produits")
-    ax.set_ylabel("Quantité en stock")
+        add_window = tk.Toplevel(self)
+        add_window.title("Ajouter un produit")
 
-    canvas = FigureCanvasTkAgg(fig, master=stats_window)
-    canvas.draw()
-    canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        tk.Label(add_window, text="Nom:").grid(row=0, column=0)
+        entry_nom = tk.Entry(add_window)
+        entry_nom.grid(row=0, column=1)
 
-def treeview_sort_column(tv, col, reverse):
-    l = [(tv.set(k, col), k) for k in tv.get_children('')]
-    if col == "Stock":
-        l.sort(key=lambda x: int(x[0]), reverse=reverse)
-    else:
-        l.sort(reverse=reverse)
+        tk.Label(add_window, text="Prix:").grid(row=1, column=0)
+        entry_prix = tk.Entry(add_window)
+        entry_prix.grid(row=1, column=1)
 
-    for index, (val, k) in enumerate(l):
-        tv.move(k, '', index)
+        tk.Label(add_window, text="Stock:").grid(row=2, column=0)
+        entry_stock = tk.Entry(add_window)
+        entry_stock.grid(row=2, column=1)
 
-    for column in tv["columns"]:
-        tv.heading(column, text=column)
-    if reverse:
-        tv.heading(col, text=f"{col} ▲")
-    else:
-        tv.heading(col, text=f"{col} ▼")
+        tk.Button(add_window, text="Ajouter", command=save_new_product).grid(row=3, column=0, columnspan=2)
 
-    tv.heading(col, command=lambda: treeview_sort_column(tv, col, not reverse))
+    def delete_product(self):
+        selected_item = self.tree.selection()
+        if not selected_item:
+            messagebox.showwarning("Avertissement", "Veuillez sélectionner un produit à supprimer.")
+            return
 
-root = tk.Tk()
-root.title("Gestion des commandes")
+        nom = self.tree.item(selected_item, "values")[0]
+        self.products = self.products[self.products["Nom"] != nom]
+        self.products.to_csv(f"produits_{self.current_user}.csv", index=False)
+        self.update_product_tree()
 
-frame_products = tk.Frame(root)
-frame_products.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-tree = ttk.Treeview(frame_products, columns=("Nom", "Prix", "Stock"), show="headings")
-tree.heading("Nom", text="Nom", command=lambda: treeview_sort_column(tree, "Nom", False))
-tree.heading("Prix", text="Prix", command=lambda: treeview_sort_column(tree, "Prix", False))
-tree.heading("Stock", text="Stock", command=lambda: treeview_sort_column(tree, "Stock", False))
-
-tree.pack(fill=tk.BOTH, expand=True)
-
-produits = load_produits_from_file()
-update_products_tree(produits)
-
-btn_frame = tk.Frame(root)
-btn_frame.pack(fill=tk.X, padx=10, pady=10)
-
-tk.Button(btn_frame, text="Ajouter un produit", command=lambda: add_product(produits)).pack(side=tk.LEFT, padx=5)
-tk.Button(btn_frame, text="Supprimer un produit", command=lambda: delete_product(produits)).pack(side=tk.LEFT, padx=5)
-tk.Button(btn_frame, text="Afficher les commandes", command=display_commandes).pack(side=tk.LEFT, padx=5)
-tk.Button(btn_frame, text="Statistiques", command=lambda: display_statistics(produits)).pack(side=tk.LEFT, padx=5)
-
-root.mainloop()
+if __name__ == "__main__":
+    app = Application()
+    app.mainloop()
