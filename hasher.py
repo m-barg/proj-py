@@ -12,8 +12,9 @@ def nouveau_user():
     with open('csvuser.csv','a', newline='', encoding='utf-8') as fichier :
         writer = csv.writer(fichier)
         writer.writerow([2,nomuser,hache_mdp])
-    return writer
-
+    return 
 print(nouveau_user())
 
 
+def creationuser():
+    
