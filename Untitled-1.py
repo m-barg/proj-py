@@ -4,6 +4,7 @@ import pandas as pd
 import hashlib
 
 FILE_USERS = "utilisateurs.csv"
+FILE_PRODUCTS = "produits.csv"
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -17,6 +18,15 @@ def load_users():
 def save_users(users):
     users.to_csv(FILE_USERS, index=False)
 
+def load_products():
+    try:
+        return pd.read_csv(FILE_PRODUCTS)
+    except FileNotFoundError:
+        return pd.DataFrame(columns=["User", "Nom", "Prix", "Stock"])
+
+def save_products(products):
+    products.to_csv(FILE_PRODUCTS, index=False)
+
 class Application(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -24,6 +34,7 @@ class Application(tk.Tk):
         self.geometry("600x400")
         self.current_user = None
         self.users = load_users()
+        self.products = load_products()
         self.show_login_screen()
 
     def show_login_screen(self):
@@ -106,21 +117,14 @@ class Application(tk.Tk):
         tk.Button(btn_frame, text="Supprimer un produit", command=self.delete_product).pack(side=tk.LEFT, padx=5)
         tk.Button(btn_frame, text="Déconnexion", command=self.show_login_screen).pack(side=tk.RIGHT, padx=5)
 
-        self.load_products()
-
-    def load_products(self):
-        try:
-            self.products = pd.read_csv(f"produits_{self.current_user}.csv")
-        except FileNotFoundError:
-            self.products = pd.DataFrame(columns=["Nom", "Prix", "Stock"])
-
         self.update_product_tree()
 
     def update_product_tree(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
 
-        for _, product in self.products.iterrows():
+        user_products = self.products[self.products["User"] == self.current_user]
+        for _, product in user_products.iterrows():
             self.tree.insert("", "end", values=(product["Nom"], product["Prix"], product["Stock"]))
 
     def add_product(self):
@@ -133,9 +137,9 @@ class Application(tk.Tk):
                 messagebox.showerror("Erreur", "Prix et stock doivent être des nombres.")
                 return
 
-            new_product = {"Nom": nom, "Prix": prix, "Stock": stock}
+            new_product = {"User": self.current_user, "Nom": nom, "Prix": prix, "Stock": stock}
             self.products = pd.concat([self.products, pd.DataFrame([new_product])], ignore_index=True)
-            self.products.to_csv(f"produits_{self.current_user}.csv", index=False)
+            save_products(self.products)
             self.update_product_tree()
             add_window.destroy()
 
@@ -163,26 +167,19 @@ class Application(tk.Tk):
             return
 
         nom = self.tree.item(selected_item, "values")[0]
-        self.products = self.products[self.products["Nom"] != nom]
-        self.products.to_csv(f"produits_{self.current_user}.csv", index=False)
+        self.products = self.products[(self.products["Nom"] != nom) | (self.products["User"] != self.current_user)]
+        save_products(self.products)
         self.update_product_tree()
 
     def treeview_sort_column(self, col, reverse):
         l = [(self.tree.set(k, col), k) for k in self.tree.get_children('')]
-        if col == "Stock":
-            l.sort(key=lambda x: int(x[0]), reverse=reverse)
+        if col in ["Prix", "Stock"]:
+            l.sort(key=lambda x: float(x[0]), reverse=reverse)
         else:
             l.sort(reverse=reverse)
 
-        for index, (val, k) in enumerate(l):
+        for index, (_, k) in enumerate(l):
             self.tree.move(k, '', index)
-
-        for column in self.tree["columns"]:
-            self.tree.heading(column, text=column)
-        if reverse:
-            self.tree.heading(col, text=f"{col} ▼")
-        else:
-            self.tree.heading(col, text=f"{col} ▲")
 
         self.tree.heading(col, command=lambda: self.treeview_sort_column(col, not reverse))
 
