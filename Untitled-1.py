@@ -16,6 +16,7 @@ def load_users():
 
 def save_users(users):
     users.to_csv(FILE_USERS, index=False)
+
 class Application(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -82,6 +83,7 @@ class Application(tk.Tk):
 
         messagebox.showinfo("Succès", "Inscription réussie.")
         self.show_login_screen()
+
     def show_product_management_screen(self):
         for widget in self.winfo_children():
             widget.destroy()
@@ -94,7 +96,7 @@ class Application(tk.Tk):
         columns = ["Nom", "Prix", "Stock"]
         self.tree = ttk.Treeview(product_frame, columns=columns, show="headings")
         for col in columns:
-            self.tree.heading(col, text=col)
+            self.tree.heading(col, text=col, command=lambda c=col: self.treeview_sort_column(c, False))
         self.tree.pack(fill=tk.BOTH, expand=True)
 
         btn_frame = tk.Frame(self)
@@ -165,6 +167,24 @@ class Application(tk.Tk):
         self.products.to_csv(f"produits_{self.current_user}.csv", index=False)
         self.update_product_tree()
 
+    def treeview_sort_column(self, col, reverse):
+        l = [(self.tree.set(k, col), k) for k in self.tree.get_children('')]
+        if col == "Stock":
+            l.sort(key=lambda x: int(x[0]), reverse=reverse)
+        else:
+            l.sort(reverse=reverse)
+
+        for index, (val, k) in enumerate(l):
+            self.tree.move(k, '', index)
+
+        for column in self.tree["columns"]:
+            self.tree.heading(column, text=column)
+        if reverse:
+            self.tree.heading(col, text=f"{col} ▼")
+        else:
+            self.tree.heading(col, text=f"{col} ▲")
+
+        self.tree.heading(col, command=lambda: self.treeview_sort_column(col, not reverse))
 
 if __name__ == "__main__":
     app = Application()
