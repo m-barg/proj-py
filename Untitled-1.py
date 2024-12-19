@@ -2,12 +2,30 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 import pandas as pd
 import hashlib
+import requests
 
 FILE_USERS = "utilisateurs.csv"
 FILE_PRODUCTS = "produits.csv"
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
+
+def is_password_compromised(password):
+    sha1_hash = hashlib.sha1(password.encode('utf-8')).hexdigest().upper()
+    prefix = sha1_hash[:5]
+    suffix = sha1_hash[5:]
+
+    url = f"https://api.pwnedpasswords.com/range/{prefix}"
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        raise RuntimeError(f"Erreur avec l'API PwnedPasswords : {response.status_code}")
+
+    hashes = (line.split(':') for line in response.text.splitlines())
+    for returned_suffix, count in hashes:
+        if returned_suffix == suffix:
+            return int(count)
+    return 0
 
 def load_users():
     try:
@@ -86,6 +104,18 @@ class Application(tk.Tk):
 
         if not self.users[self.users["Utilisateur"] == username].empty:
             messagebox.showerror("Erreur", "Ce nom d'utilisateur est déjà pris.")
+            return
+
+        try:
+            compromised_count = is_password_compromised(password)
+            if compromised_count > 0:
+                messagebox.showerror(
+                    "Erreur",
+                    f"Ce mot de passe est trop faible. Il a été compromis {compromised_count} fois dans des violations de données. Veuillez choisir un mot de passe plus sécurisé."
+                )
+                return
+        except RuntimeError as e:
+            messagebox.showerror("Erreur", f"Problème lors de la vérification du mot de passe : {e}")
             return
 
         new_user = {"Utilisateur": username, "Mot_de_passe": hash_password(password)}
