@@ -12,14 +12,14 @@ def hash_password(password):
 
 def is_password_compromised(password):
     sha1_hash = hashlib.sha1(password.encode('utf-8')).hexdigest().upper()
-    prefix = sha1_hash[:5]
     suffix = sha1_hash[5:]
+    prefix = sha1_hash[:5]
 
     url = f"https://api.pwnedpasswords.com/range/{prefix}"
     response = requests.get(url)
 
     if response.status_code != 200:
-        raise RuntimeError(f"Erreur avec l'API PwnedPasswords : {response.status_code}")
+        raise RuntimeError(f"erreur avec l'API pwndpass : {response.status_code}")
 
     hashes = (line.split(':') for line in response.text.splitlines())
     for returned_suffix, count in hashes:
@@ -61,7 +61,7 @@ class Application(tk.Tk):
 
         tk.Label(self, text="Connexion", font=("Arial", 20)).pack(pady=10)
 
-        tk.Label(self, text="Nom d'utilisateur:").pack()
+        tk.Label(self, text="Nom d'user:").pack()
         username_entry = tk.Entry(self)
         username_entry.pack()
 
@@ -69,8 +69,8 @@ class Application(tk.Tk):
         password_entry = tk.Entry(self, show="*")
         password_entry.pack()
 
-        tk.Button(self, text="Se connecter", command=lambda: self.login(username_entry.get(), password_entry.get())).pack(pady=5)
-        tk.Button(self, text="S'inscrire", command=lambda: self.show_register_screen()).pack(pady=5)
+        tk.Button(self, text="Se connecter.", command=lambda: self.login(username_entry.get(), password_entry.get())).pack(pady=5)
+        tk.Button(self, text="S'inscrire.", command=lambda: self.show_register_screen()).pack(pady=5)
 
     def show_register_screen(self):
         for widget in self.winfo_children():
@@ -105,7 +105,8 @@ class Application(tk.Tk):
         if not self.users[self.users["Utilisateur"] == username].empty:
             messagebox.showerror("Erreur", "Ce nom d'utilisateur est déjà pris.")
             return
-
+        elif len(password) <= 8:
+            messagebox.showerror("Erreur MDP",f"il est peut être pas compromis mais il est bien court,veuillez choisir un mot de passe de plus de 8 caractères ")
         try:
             compromised_count = is_password_compromised(password)
             if compromised_count > 0:
