@@ -14,7 +14,3 @@ def nouveau_user():
         writer.writerow([2,nomuser,hache_mdp])
     return 
 print(nouveau_user())
-
-
-def creationuser():
-    
