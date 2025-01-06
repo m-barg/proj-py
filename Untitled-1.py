@@ -4,14 +4,17 @@ import pandas as pd
 import hashlib
 import requests
 import smtplib
-import json 
+import json
 from email.message import EmailMessage
+import schedule
+import time
 
 FILE_USERS = "utilisateurs.csv"
 FILE_PRODUCTS = "produits.csv"
+
+# Charger la configuration email
 json_file = open("config.json")
 gmail_cfg = json.load(json_file)
-print()
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -25,7 +28,7 @@ def is_password_compromised(password):
     response = requests.get(url)
 
     if response.status_code != 200:
-        raise RuntimeError(f"erreur avec l'API pwndpass : {response.status_code}")
+        raise RuntimeError(f"Erreur avec l'API pwndpasswords : {response.status_code}")
 
     hashes = (line.split(':') for line in response.text.splitlines())
     for returned_suffix, count in hashes:
@@ -37,7 +40,7 @@ def load_users():
     try:
         return pd.read_csv(FILE_USERS)
     except FileNotFoundError:
-        return pd.DataFrame(columns=["Utilisateur", "Mot_de_passe"])
+        return pd.DataFrame(columns=["Utilisateur", "Mot_de_passe", "Email"])
 
 def save_users(users):
     users.to_csv(FILE_USERS, index=False)
@@ -50,8 +53,59 @@ def load_products():
 
 def save_products(products):
     products.to_csv(FILE_PRODUCTS, index=False)
-def email_send():
-    print("test")
+
+def email_send(to_email, subject, body):
+    msg = EmailMessage()
+    msg["to"] = to_email
+    msg["from"] = gmail_cfg["email"]
+    msg["Subject"] = subject
+    msg.set_content(body)
+
+    with smtplib.SMTP_SSL(gmail_cfg["server"], gmail_cfg["port"]) as smtp:
+        smtp.login(gmail_cfg["email"], gmail_cfg["pwd"])
+        smtp.send_message(msg)
+
+
+def check_all_passwords():
+    users = load_users()
+    compromised_users = []
+
+    for _, user in users.iterrows():
+        try:
+            compromised_count = is_password_compromised(user["Mot_de_passe"])
+            if compromised_count > 0:
+                compromised_users.append({
+                    "Utilisateur": user["Utilisateur"],
+                    "Email": user["Email"],
+                    "CompromisedCount": compromised_count
+                })
+        except RuntimeError as e:
+            print(f"Erreur lors de la vérification du mot de passe pour {user['Utilisateur']} : {e}")
+
+    return compromised_users
+
+def alert_users_about_compromised_passwords():
+    compromised_users = check_all_passwords()
+
+    for user in compromised_users:
+        try:
+            email_send(
+                to_email=user["Email"],
+                subject="Votre mot de passe est compromis",
+                body=f"""
+                Bonjour {user["Utilisateur"]},
+
+                Nous avons détecté que votre mot de passe actuel est compromis et qu'il a été exposé {user["CompromisedCount"]} fois dans des violations de données.
+
+                Nous vous recommandons vivement de changer votre mot de passe dès que possible pour sécuriser votre compte.
+
+                Merci de votre compréhension,
+                L'équipe de gestion.
+                """
+            )
+            print(f"Email envoyé à {user['Email']} concernant son mot de passe compromis.")
+        except Exception as e:
+            print(f"Erreur lors de l'envoi de l'email à {user['Email']} : {e}")
 
 class Application(tk.Tk):
     def __init__(self):
@@ -94,7 +148,11 @@ class Application(tk.Tk):
         password_entry = tk.Entry(self, show="*")
         password_entry.pack()
 
-        tk.Button(self, text="S'inscrire", command=lambda: self.register(username_entry.get(), password_entry.get())).pack(pady=5)
+        tk.Label(self, text="Email:").pack()
+        email_entry = tk.Entry(self)
+        email_entry.pack()
+
+        tk.Button(self, text="S'inscrire", command=lambda: self.register(username_entry.get(), password_entry.get(), email_entry.get())).pack(pady=5)
         tk.Button(self, text="Retour", command=lambda: self.show_login_screen()).pack(pady=5)
 
     def login(self, username, password):
@@ -105,16 +163,19 @@ class Application(tk.Tk):
         else:
             messagebox.showerror("Erreur", "Nom d'utilisateur ou mot de passe incorrect.")
 
-    def register(self, username, password):
-        if username.strip() == "" or password.strip() == "":
+    def register(self, username, password, email):
+        if username.strip() == "" or password.strip() == "" or email.strip() == "":
             messagebox.showerror("Erreur", "Veuillez remplir tous les champs.")
             return
 
         if not self.users[self.users["Utilisateur"] == username].empty:
             messagebox.showerror("Erreur", "Ce nom d'utilisateur est déjà pris.")
             return
-        elif len(password) <= 8:
-            messagebox.showerror("Erreur MDP",f"il est peut être pas compromis mais il est bien court,veuillez choisir un mot de passe de plus de 8 caractères ")
+
+        if len(password) <= 8:
+            messagebox.showerror("Erreur MDP", f"Veuillez choisir un mot de passe de plus de 8 caractères.")
+            return
+
         try:
             compromised_count = is_password_compromised(password)
             if compromised_count > 0:
@@ -127,7 +188,7 @@ class Application(tk.Tk):
             messagebox.showerror("Erreur", f"Problème lors de la vérification du mot de passe : {e}")
             return
 
-        new_user = {"Utilisateur": username, "Mot_de_passe": hash_password(password)}
+        new_user = {"Utilisateur": username, "Mot_de_passe": hash_password(password), "Email": email}
         self.users = pd.concat([self.users, pd.DataFrame([new_user])], ignore_index=True)
         save_users(self.users)
 
@@ -228,5 +289,16 @@ class Application(tk.Tk):
         self.tree.heading(col, command=lambda: self.treeview_sort_column(col, not reverse))
 
 if __name__ == "__main__":
+    # Planification de la vérification des mots de passe compromis toutes les heures
+    schedule.every(1).hours.do(alert_users_about_compromised_passwords)
+
+    def run_schedule():
+        while True:
+            schedule.run_pending()
+            time.sleep(1)
+
+    from threading import Thread
+    Thread(target=run_schedule, daemon=True).start()
+
     app = Application()
     app.mainloop()

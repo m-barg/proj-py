@@ -30,7 +30,16 @@ msg = EmailMessage()
 msg["to"] = "random@gmail.com"
 msg["from"] = gmail_cfg["email"]
 msg["Subject"] = "ALERTE MOT DE PASSE COMPROMIS"
-msg.set_content("CHANGE TON MDP,PD DE MERDE IL EST COMPROMIS FAIT VITE, ADMIN MALO X DIMO")
+msg.set_content("""
+Bonjour,
+
+Nous avons détecté que votre mot de passe a été compromis. 
+Par mesure de sécurité, nous vous recommandons de le changer immédiatement.
+
+Merci de votre compréhension.
+
+L'équipe de sécurité Dimitri le Goat et Malo le blond
+""")
 with smtplib.SMTP_SSL(gmail_cfg["server"],gmail_cfg["port"]) as smtp:
     smtp.login(gmail_cfg["email"],gmail_cfg["pwd"])
     smtp.send_message(msg)
