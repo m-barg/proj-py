@@ -3,9 +3,15 @@ from tkinter import messagebox, ttk
 import pandas as pd
 import hashlib
 import requests
+import smtplib
+import json 
+from email.message import EmailMessage
 
 FILE_USERS = "utilisateurs.csv"
 FILE_PRODUCTS = "produits.csv"
+json_file = open("config.json")
+gmail_cfg = json.load(json_file)
+print()
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -44,6 +50,8 @@ def load_products():
 
 def save_products(products):
     products.to_csv(FILE_PRODUCTS, index=False)
+def email_send():
+    print("test")
 
 class Application(tk.Tk):
     def __init__(self):
