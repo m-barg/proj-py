@@ -216,9 +216,14 @@ class Application(tk.Tk):
             l.sort(key=lambda x: float(x[0]), reverse=reverse)
         else:
             l.sort(reverse=reverse)
-
         for index, (_, k) in enumerate(l):
             self.tree.move(k, '', index)
+        for column in self.tree["columns"]:
+            self.tree.heading(column, text=column)
+        if reverse:
+            self.tree.heading(col, text=f"{col} ▼")
+        else:
+            self.tree.heading(col, text=f"{col} ▲")
 
         self.tree.heading(col, command=lambda: self.treeview_sort_column(col, not reverse))
 
