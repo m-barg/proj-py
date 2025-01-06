@@ -3,9 +3,11 @@ from tkinter import messagebox, ttk
 import pandas as pd
 import hashlib
 import requests
+import json
 
 FILE_USERS = "utilisateurs.csv"
 FILE_PRODUCTS = "produits.csv"
+FILE_COMMANDS = "commandes.json"
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -44,6 +46,17 @@ def load_products():
 
 def save_products(products):
     products.to_csv(FILE_PRODUCTS, index=False)
+
+def load_commands():
+    try:
+        with open(FILE_COMMANDS, "r") as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return []
+
+def save_commands(commands):
+    with open(FILE_COMMANDS, "w") as file:
+        json.dump(commands, file, indent=4)
 
 class Application(tk.Tk):
     def __init__(self):
@@ -147,6 +160,7 @@ class Application(tk.Tk):
         tk.Button(btn_frame, text="Ajouter un produit", command=self.add_product).pack(side=tk.LEFT, padx=5)
         tk.Button(btn_frame, text="Supprimer un produit", command=self.delete_product).pack(side=tk.LEFT, padx=5)
         tk.Button(btn_frame, text="Déconnexion", command=self.show_login_screen).pack(side=tk.RIGHT, padx=5)
+        tk.Button(btn_frame, text="Voir les commandes", command=self.show_orders).pack(side=tk.LEFT, padx=5)
 
         self.update_product_tree()
 
@@ -201,6 +215,83 @@ class Application(tk.Tk):
         self.products = self.products[(self.products["Nom"] != nom) | (self.products["User"] != self.current_user)]
         save_products(self.products)
         self.update_product_tree()
+
+    def show_orders(self):
+        for widget in self.winfo_children():
+            widget.destroy()
+
+        tk.Label(self, text=f"Commandes pour {self.current_user}", font=("Arial", 20)).pack(pady=10)
+
+        orders = load_commands()
+        user_orders = [order for order in orders if order["marchand"] == self.current_user]
+
+        if not user_orders:
+            tk.Label(self, text="Aucune commande en attente.").pack(pady=10)
+            tk.Button(self, text="Retour", command=self.show_product_management_screen).pack(pady=10)
+            return
+
+        frame_orders = tk.Frame(self)
+        frame_orders.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        tree_orders = ttk.Treeview(frame_orders, columns=["Produit", "Quantité", "Statut"], show="headings")
+        tree_orders.heading("Produit", text="Produit")
+        tree_orders.heading("Quantité", text="Quantité")
+        tree_orders.heading("Statut", text="Statut")
+        tree_orders.pack(fill=tk.BOTH, expand=True)
+
+        for order in user_orders:
+            tree_orders.insert("", "end", values=(order["produit"], order["quantite"], order["status"]))
+
+        btn_frame = tk.Frame(self)
+        btn_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        tk.Button(btn_frame, text="Valider commande",
+                  command=lambda: self.process_order(tree_orders, user_orders, "traitée")).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Rejeter commande",
+                  command=lambda: self.process_order(tree_orders, user_orders, "rejetée")).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Retour", command=self.show_product_management_screen).pack(side=tk.RIGHT, padx=5)
+
+    def process_order(self, tree_orders, user_orders, new_status):
+        selected_item = tree_orders.selection()
+        if not selected_item:
+            messagebox.showwarning("Avertissement", "Veuillez sélectionner une commande à traiter.")
+            return
+
+        index = int(tree_orders.index(selected_item[0]))
+        selected_order = user_orders[index]
+
+        if new_status == "traitée":
+            product = self.products[
+                (self.products["User"] == self.current_user) & (self.products["Nom"] == selected_order["produit"])
+                ]
+
+            if product.empty:
+                messagebox.showerror("Erreur", "Produit introuvable dans votre stock.")
+                return
+
+            stock = product.iloc[0]["Stock"]
+            if stock < selected_order["quantite"]:
+                messagebox.showerror("Erreur", "Stock insuffisant pour traiter la commande.")
+                return
+
+            self.products.loc[
+                (self.products["User"] == self.current_user) & (
+                            self.products["Nom"] == selected_order["produit"]), "Stock"
+            ] -= selected_order["quantite"]
+            save_products(self.products)
+
+        commands = load_commands()
+        for command in commands:
+            if (
+                    command["marchand"] == selected_order["marchand"]
+                    and command["produit"] == selected_order["produit"]
+                    and command["quantite"] == selected_order["quantite"]
+            ):
+                command["status"] = new_status
+                break
+
+        save_commands(commands)
+        self.show_orders()
 
     def treeview_sort_column(self, col, reverse):
         l = [(self.tree.set(k, col), k) for k in self.tree.get_children('')]
