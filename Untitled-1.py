@@ -56,7 +56,7 @@ def load_commands():
 
 def save_commands(commands):
     with open(FILE_COMMANDS, "w") as file:
-        json.dump(commands, file, indent=4)
+        json.dump(commands, file, indent=4, ensure_ascii=False)
 
 class Application(tk.Tk):
     def __init__(self):
