@@ -6,8 +6,8 @@
         "status": "traitée"
     },
     {
-        "marchand": "autre_marchand",
-        "produit": "autre_produit",
+        "marchand": "test12",
+        "produit": "hf",
         "quantite": 2,
         "status": "en attente"
     }
