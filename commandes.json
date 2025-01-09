@@ -3,12 +3,12 @@
         "marchand": "dgfdgg",
         "produit": "ghhfh",
         "quantite": 5,
-        "status": "traitée"
+        "status": "trait\u00c3\u00a9e"
     },
     {
-        "marchand": "test12",
-        "produit": "hf",
+        "marchand": "marchand",
+        "produit": "test",
         "quantite": 2,
-        "status": "en attente"
+        "status": "trait\u00e9e :) "
     }
 ]
