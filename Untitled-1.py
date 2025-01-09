@@ -3,18 +3,11 @@ from tkinter import messagebox, ttk
 import pandas as pd
 import hashlib
 import requests
-import smtplib
 import json
-from email.message import EmailMessage
-import schedule
-import time
 
 FILE_USERS = "utilisateurs.csv"
 FILE_PRODUCTS = "produits.csv"
-
-# Charger la configuration email
-json_file = open("config.json")
-gmail_cfg = json.load(json_file)
+FILE_COMMANDS = "commandes.json"
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -28,7 +21,7 @@ def is_password_compromised(password):
     response = requests.get(url)
 
     if response.status_code != 200:
-        raise RuntimeError(f"Erreur avec l'API pwndpasswords : {response.status_code}")
+        raise RuntimeError(f"erreur avec l'API pwndpass : {response.status_code}")
 
     hashes = (line.split(':') for line in response.text.splitlines())
     for returned_suffix, count in hashes:
@@ -40,7 +33,7 @@ def load_users():
     try:
         return pd.read_csv(FILE_USERS)
     except FileNotFoundError:
-        return pd.DataFrame(columns=["Utilisateur", "Mot_de_passe", "Email"])
+        return pd.DataFrame(columns=["Utilisateur", "Mot_de_passe"])
 
 def save_users(users):
     users.to_csv(FILE_USERS, index=False)
@@ -54,58 +47,16 @@ def load_products():
 def save_products(products):
     products.to_csv(FILE_PRODUCTS, index=False)
 
-def email_send(to_email, subject, body):
-    msg = EmailMessage()
-    msg["to"] = to_email
-    msg["from"] = gmail_cfg["email"]
-    msg["Subject"] = subject
-    msg.set_content(body)
+def load_commands():
+    try:
+        with open(FILE_COMMANDS, "r") as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return []
 
-    with smtplib.SMTP_SSL(gmail_cfg["server"], gmail_cfg["port"]) as smtp:
-        smtp.login(gmail_cfg["email"], gmail_cfg["pwd"])
-        smtp.send_message(msg)
-
-
-def check_all_passwords():
-    users = load_users()
-    compromised_users = []
-
-    for _, user in users.iterrows():
-        try:
-            compromised_count = is_password_compromised(user["Mot_de_passe"])
-            if compromised_count > 0:
-                compromised_users.append({
-                    "Utilisateur": user["Utilisateur"],
-                    "Email": user["Email"],
-                    "CompromisedCount": compromised_count
-                })
-        except RuntimeError as e:
-            print(f"Erreur lors de la vérification du mot de passe pour {user['Utilisateur']} : {e}")
-
-    return compromised_users
-
-def alert_users_about_compromised_passwords():
-    compromised_users = check_all_passwords()
-
-    for user in compromised_users:
-        try:
-            email_send(
-                to_email=user["Email"],
-                subject="Votre mot de passe est compromis",
-                body=f"""
-                Bonjour {user["Utilisateur"]},
-
-                Nous avons détecté que votre mot de passe actuel est compromis et qu'il a été exposé {user["CompromisedCount"]} fois dans des violations de données.
-
-                Nous vous recommandons vivement de changer votre mot de passe dès que possible pour sécuriser votre compte.
-
-                Merci de votre compréhension,
-                L'équipe de gestion.
-                """
-            )
-            print(f"Email envoyé à {user['Email']} concernant son mot de passe compromis.")
-        except Exception as e:
-            print(f"Erreur lors de l'envoi de l'email à {user['Email']} : {e}")
+def save_commands(commands):
+    with open(FILE_COMMANDS, "w") as file:
+        json.dump(commands, file, indent=4)
 
 class Application(tk.Tk):
     def __init__(self):
@@ -148,11 +99,7 @@ class Application(tk.Tk):
         password_entry = tk.Entry(self, show="*")
         password_entry.pack()
 
-        tk.Label(self, text="Email:").pack()
-        email_entry = tk.Entry(self)
-        email_entry.pack()
-
-        tk.Button(self, text="S'inscrire", command=lambda: self.register(username_entry.get(), password_entry.get(), email_entry.get())).pack(pady=5)
+        tk.Button(self, text="S'inscrire", command=lambda: self.register(username_entry.get(), password_entry.get())).pack(pady=5)
         tk.Button(self, text="Retour", command=lambda: self.show_login_screen()).pack(pady=5)
 
     def login(self, username, password):
@@ -163,8 +110,8 @@ class Application(tk.Tk):
         else:
             messagebox.showerror("Erreur", "Nom d'utilisateur ou mot de passe incorrect.")
 
-    def register(self, username, password, email):
-        if username.strip() == "" or password.strip() == "" or email.strip() == "":
+    def register(self, username, password):
+        if username.strip() == "" or password.strip() == "":
             messagebox.showerror("Erreur", "Veuillez remplir tous les champs.")
             return
 
@@ -188,7 +135,7 @@ class Application(tk.Tk):
             messagebox.showerror("Erreur", f"Problème lors de la vérification du mot de passe : {e}")
             return
 
-        new_user = {"Utilisateur": username, "Mot_de_passe": hash_password(password), "Email": email}
+        new_user = {"Utilisateur": username, "Mot_de_passe": hash_password(password)}
         self.users = pd.concat([self.users, pd.DataFrame([new_user])], ignore_index=True)
         save_users(self.users)
 
@@ -216,6 +163,7 @@ class Application(tk.Tk):
         tk.Button(btn_frame, text="Ajouter un produit", command=self.add_product).pack(side=tk.LEFT, padx=5)
         tk.Button(btn_frame, text="Supprimer un produit", command=self.delete_product).pack(side=tk.LEFT, padx=5)
         tk.Button(btn_frame, text="Déconnexion", command=self.show_login_screen).pack(side=tk.RIGHT, padx=5)
+        tk.Button(btn_frame, text="Voir les commandes", command=self.show_orders).pack(side=tk.LEFT, padx=5)
 
         self.update_product_tree()
 
@@ -271,6 +219,83 @@ class Application(tk.Tk):
         save_products(self.products)
         self.update_product_tree()
 
+    def show_orders(self):
+        for widget in self.winfo_children():
+            widget.destroy()
+
+        tk.Label(self, text=f"Commandes pour {self.current_user}", font=("Arial", 20)).pack(pady=10)
+
+        orders = load_commands()
+        user_orders = [order for order in orders if order["marchand"] == self.current_user]
+
+        if not user_orders:
+            tk.Label(self, text="Aucune commande en attente.").pack(pady=10)
+            tk.Button(self, text="Retour", command=self.show_product_management_screen).pack(pady=10)
+            return
+
+        frame_orders = tk.Frame(self)
+        frame_orders.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        tree_orders = ttk.Treeview(frame_orders, columns=["Produit", "Quantité", "Statut"], show="headings")
+        tree_orders.heading("Produit", text="Produit")
+        tree_orders.heading("Quantité", text="Quantité")
+        tree_orders.heading("Statut", text="Statut")
+        tree_orders.pack(fill=tk.BOTH, expand=True)
+
+        for order in user_orders:
+            tree_orders.insert("", "end", values=(order["produit"], order["quantite"], order["status"]))
+
+        btn_frame = tk.Frame(self)
+        btn_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        tk.Button(btn_frame, text="Valider commande",
+                  command=lambda: self.process_order(tree_orders, user_orders, "traitée :) ")).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Rejeter commande",
+                  command=lambda: self.process_order(tree_orders, user_orders, "rejetée :/")).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Retour", command=self.show_product_management_screen).pack(side=tk.RIGHT, padx=5)
+
+    def process_order(self, tree_orders, user_orders, new_status):
+        selected_item = tree_orders.selection()
+        if not selected_item:
+            messagebox.showwarning("Avertissement", "Veuillez sélectionner une commande à traiter !")
+            return
+
+        index = int(tree_orders.index(selected_item[0]))
+        selected_order = user_orders[index]
+
+        if new_status == "traitée":
+            product = self.products[
+                (self.products["User"] == self.current_user) & (self.products["Nom"] == selected_order["produit"])
+                ]
+
+            if product.empty:
+                messagebox.showerror("Erreur", "Produit introuvable dans votre stock.")
+                return
+
+            stock = product.iloc[0]["Stock"]
+            if stock < selected_order["quantite"]:
+                messagebox.showerror("Erreur", "Stock insuffisant pour traiter la commande.")
+                return
+
+            self.products.loc[
+                (self.products["User"] == self.current_user) & (
+                            self.products["Nom"] == selected_order["produit"]), "Stock"
+            ] -= selected_order["quantite"]
+            save_products(self.products)
+
+        commands = load_commands()
+        for command in commands:
+            if (
+                    command["marchand"] == selected_order["marchand"]
+                    and command["produit"] == selected_order["produit"]
+                    and command["quantite"] == selected_order["quantite"]
+            ):
+                command["status"] = new_status
+                break
+
+        save_commands(commands)
+        self.show_orders()
+
     def treeview_sort_column(self, col, reverse):
         l = [(self.tree.set(k, col), k) for k in self.tree.get_children('')]
         if col in ["Prix", "Stock"]:
@@ -289,16 +314,5 @@ class Application(tk.Tk):
         self.tree.heading(col, command=lambda: self.treeview_sort_column(col, not reverse))
 
 if __name__ == "__main__":
-    # Planification de la vérification des mots de passe compromis toutes les heures
-    schedule.every(1).hours.do(alert_users_about_compromised_passwords)
-
-    def run_schedule():
-        while True:
-            schedule.run_pending()
-            time.sleep(1)
-
-    from threading import Thread
-    Thread(target=run_schedule, daemon=True).start()
-
     app = Application()
     app.mainloop()

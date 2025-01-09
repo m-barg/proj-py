@@ -1,0 +1,14 @@
+[
+    {
+        "marchand": "dgfdgg",
+        "produit": "ghhfh",
+        "quantite": 5,
+        "status": "traitée"
+    },
+    {
+        "marchand": "autre_marchand",
+        "produit": "autre_produit",
+        "quantite": 2,
+        "status": "en attente"
+    }
+]
