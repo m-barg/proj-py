@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox
+from tkinter import ttk
 import pandas as pd
 import hashlib
 import requests
@@ -63,6 +64,7 @@ class Application(tk.Tk):
         super().__init__()
         self.title("Gestion des stocks - Multi-utilisateurs")
         self.geometry("600x400")
+        
         self.current_user = None
         self.users = load_users()
         self.products = load_products()
@@ -79,11 +81,11 @@ class Application(tk.Tk):
         username_entry.pack()
 
         tk.Label(self, text="Mot de passe:").pack()
-        password_entry = tk.Entry(self, show="*")
+        password_entry = tk.Entry(self,show="*")
         password_entry.pack()
 
-        tk.Button(self, text="Se connecter.", command=lambda: self.login(username_entry.get(), password_entry.get())).pack(pady=5)
-        tk.Button(self, text="S'inscrire.", command=lambda: self.show_register_screen()).pack(pady=5)
+        tk.Button(self, text="Se connecter.",fg="green", command=lambda: self.login(username_entry.get(), password_entry.get())).pack(pady=5)
+        tk.Button(self, text="S'inscrire.",fg="blue", command=lambda: self.show_register_screen()).pack(pady=5)
 
     def show_register_screen(self):
         for widget in self.winfo_children():
@@ -108,24 +110,27 @@ class Application(tk.Tk):
             self.current_user = username
             self.show_product_management_screen()
         else:
-            messagebox.showerror("Erreur", "Nom d'utilisateur ou mot de passe incorrect.")
+            messagebox.showerror("Erreur", "Nom d'user ou mot de passe incorrect.")
 
     def register(self, username, password):
         if username.strip() == "" or password.strip() == "":
-            messagebox.showerror("Erreur", "Veuillez remplir tous les champs.")
+            messagebox.showerror("Erreur", "verifier bien que vous avez remplit tous les champs.")
             return
 
         if not self.users[self.users["Utilisateur"] == username].empty:
             messagebox.showerror("Erreur", "Ce nom d'utilisateur est déjà pris.")
             return
-        elif len(password) <= 8:
-            messagebox.showerror("Erreur MDP",f"il est peut être pas compromis mais il est bien court,veuillez choisir un mot de passe de plus de 8 caractères ")
+
+        if len(password) <= 8:
+            messagebox.showerror("Erreur MDP", f"Veuillez choisir un mot de passe de plus de 8 caractères.")
+            return
+
         try:
             compromised_count = is_password_compromised(password)
             if compromised_count > 0:
                 messagebox.showerror(
                     "Erreur",
-                    f"Ce mot de passe est trop faible. Il a été compromis {compromised_count} fois dans des violations de données. Veuillez choisir un mot de passe plus sécurisé."
+                    f"Ce mot de passe est trop faible. Il a été compromis {compromised_count} fois dans des violations de données.Pensez à un mot de passe plus sûr."
                 )
                 return
         except RuntimeError as e:
@@ -157,10 +162,10 @@ class Application(tk.Tk):
         btn_frame = tk.Frame(self)
         btn_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        tk.Button(btn_frame, text="Ajouter un produit", command=self.add_product).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="Supprimer un produit", command=self.delete_product).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="Déconnexion", command=self.show_login_screen).pack(side=tk.RIGHT, padx=5)
-        tk.Button(btn_frame, text="Voir les commandes", command=self.show_orders).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame,text="Ajouter un produit", command=self.add_product).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame,text="Supprimer un produit", command=self.delete_product).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame,text="Se deconnecter", command=self.show_login_screen).pack(side=tk.RIGHT, padx=5)
+        tk.Button(btn_frame,text="Voir les commandes", command=self.show_orders).pack(side=tk.LEFT, padx=5)
 
         self.update_product_tree()
 
@@ -246,27 +251,27 @@ class Application(tk.Tk):
         btn_frame.pack(fill=tk.X, padx=10, pady=5)
 
         tk.Button(btn_frame, text="Valider commande",
-                  command=lambda: self.process_order(tree_orders, user_orders, "traitée")).pack(side=tk.LEFT, padx=5)
+                  command=lambda: self.process_order(tree_orders, user_orders, "traitée :) ")).pack(side=tk.LEFT, padx=5)
         tk.Button(btn_frame, text="Rejeter commande",
-                  command=lambda: self.process_order(tree_orders, user_orders, "rejetée")).pack(side=tk.LEFT, padx=5)
+                  command=lambda: self.process_order(tree_orders, user_orders, "rejetée :/")).pack(side=tk.LEFT, padx=5)
         tk.Button(btn_frame, text="Retour", command=self.show_product_management_screen).pack(side=tk.RIGHT, padx=5)
 
-    def process_order(self, tree_orders, user_orders, new_status):
+    def process_order(self, tree_orders, user_orders, nvx_status):
         selected_item = tree_orders.selection()
         if not selected_item:
-            messagebox.showwarning("Avertissement", "Veuillez sélectionner une commande à traiter.")
+            messagebox.showwarning("Avertissement", "Choisissez une commande à traiter !",fg="red")
             return
 
         index = int(tree_orders.index(selected_item[0]))
         selected_order = user_orders[index]
 
-        if new_status == "traitée":
+        if nvx_status == "traitée":
             product = self.products[
                 (self.products["User"] == self.current_user) & (self.products["Nom"] == selected_order["produit"])
                 ]
 
             if product.empty:
-                messagebox.showerror("Erreur", "Produit introuvable dans votre stock.")
+                messagebox.showerror("Erreur", "Produit pas trouvable dans votre stock.")
                 return
 
             stock = product.iloc[0]["Stock"]
@@ -287,7 +292,7 @@ class Application(tk.Tk):
                     and command["produit"] == selected_order["produit"]
                     and command["quantite"] == selected_order["quantite"]
             ):
-                command["status"] = new_status
+                command["status"] = nvx_status
                 break
 
         save_commands(commands)

@@ -1,9 +1,9 @@
 [
     {
-        "marchand": "dgfdgg",
-        "produit": "ghhfh",
-        "quantite": 5,
-        "status": "traitée"
+        "marchand": "marchand",
+        "produit": "test",
+        "quantite": 2,
+        "status": "traitÃ©e"
     },
     {
         "marchand": "test12",
