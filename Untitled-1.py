@@ -251,9 +251,9 @@ class Application(tk.Tk):
         btn_frame.pack(fill=tk.X, padx=10, pady=5)
 
         tk.Button(btn_frame, text="Valider commande",
-                  command=lambda: self.process_order(tree_orders, user_orders, "traitée :) ")).pack(side=tk.LEFT, padx=5)
+                  command=lambda: self.process_order(tree_orders, user_orders, "traitée")).pack(side=tk.LEFT, padx=5)
         tk.Button(btn_frame, text="Rejeter commande",
-                  command=lambda: self.process_order(tree_orders, user_orders, "rejetée :/")).pack(side=tk.LEFT, padx=5)
+                  command=lambda: self.process_order(tree_orders, user_orders, "rejetée")).pack(side=tk.LEFT, padx=5)
         tk.Button(btn_frame, text="Retour", command=self.show_product_management_screen).pack(side=tk.RIGHT, padx=5)
 
     def process_order(self, tree_orders, user_orders, nvx_status):
