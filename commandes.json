@@ -1,14 +1,14 @@
 [
     {
-        "marchand": "dgfdgg",
-        "produit": "ghhfh",
-        "quantite": 5,
-        "status": "trait\u00c3\u00a9e"
-    },
-    {
         "marchand": "marchand",
         "produit": "test",
         "quantite": 2,
-        "status": "trait\u00e9e :) "
+        "status": "traitée"
+    },
+    {
+        "marchand": "test12",
+        "produit": "hf",
+        "quantite": 2,
+        "status": "en attente"
     }
 ]
